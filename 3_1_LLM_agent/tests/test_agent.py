@@ -1,4 +1,5 @@
 import pytest
+import string
 #from unittest.mock import MagicMock, patch
 from llm_agent.core_v2 import LLMAgent
 
@@ -31,3 +32,13 @@ def test_football_query_live():
     # Проверяем, что в реальном ответе фигурируют названия команд
     assert "Спартак" in response or "Spartak" in response
     assert "Динамо" in response or "Dynamo" in response
+
+def test_passgen_query_live():
+    """Реальный запуск агента для проверки математики."""
+    # Для тестов лучше использовать локальную модель, если она поднята
+    agent = LLMAgent(local=True, ollama_model="qwen3.5:0.8b")
+    query = "Create a password with thirteen characters, including special characters, but without numbers."
+    
+    response = agent.process_query(query)
+    
+    assert any(symb in response for symb in (string.ascii_letters + string.punctuation))
