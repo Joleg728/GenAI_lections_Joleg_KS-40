@@ -84,25 +84,32 @@ class LLMAgent:
         Создает план действий, используя LLM.
         Работает как с OpenRouter, так и с Ollama.
         """
-        system_prompt = """
-            You are a helpful AI planning assistant. Analyze the user's request and decide if you need to use any tools.
-            Available tools:
-            - calculator: for math expressions. Use "input" with the expression.
-            - web_search: for real-world info (use Russian queries). Use "input" with the query.
-            - pdf_info: for PDF metadata/text. Use "input" with file path or URL.
-            - pass_gen: for generating passwords. Use "params" with length (int), sp_symb (bool), numbs (bool).
+        system_prompt = """Available tools:
+- pass_gen: for generating a NEW password. Use "params".
+- web_search: ONLY for questions about news, facts, weather, current events.
+- calculator: for math.
+- pdf_info: for PDF files.
 
-            Your response MUST be ONLY a JSON object with key "plan".
-            Examples:
-            {"plan": [{"action": "calculator", "input": "2+2"}]}
-            {"plan": [{"action": "pass_gen", "params": {"length": 13, "sp_symb": true, "numbs": false}}]}
-            {"plan": []}
+CRITICAL RULES:
+1. If the user asks to CREATE / GENERATE / MAKE a password
+   (words: create, generate, make, password, пароль, сгенерируй, создай) — ALWAYS use pass_gen.
+   NEVER use web_search for password generation, even if the request
+   mentions length, character types, or security requirements.
+2. Use web_search ONLY when the user asks a QUESTION about the world.
+3. If unsure between pass_gen and web_search for the word "password" — choose pass_gen.
 
-            Rules:
-            - Use ONLY ASCII characters: braces {}, brackets [], quotes ", colons :, commas ,.
-            - Do NOT add comments, explanations, or markdown fences.
-            - Do NOT change the number of opening and closing brackets.
-            """
+Examples:
+User: "Create a password with 20 characters, no special chars"
+{"plan": [{"action": "pass_gen", "params": {"length": 20, "sp_symb": false, "numbs": true}}]}
+
+User: "Generate a 13-char password with symbols"
+{"plan": [{"action": "pass_gen", "params": {"length": 13, "sp_symb": true, "numbs": true}}]}
+
+User: "How long should passwords be?"
+{"plan": [{"action": "web_search", "input": "password length recommendations NIST"}]}
+
+User: "Сколько будет 2+2?"
+{"plan": [{"action": "calculator", "input": "2+2"}]}"""
 
         # Формируем запрос к API
         payload = {
@@ -133,6 +140,7 @@ class LLMAgent:
                 },
                 "required": ["plan"]
             }
+            payload["options"] = {"temperature": 0, "top_p": 0.1}
         
         try:
             # Для Ollama может потребоваться дополнительная настройка
