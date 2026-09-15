@@ -131,17 +131,6 @@ CRITICAL RULES:
                 llm_text = response_data["message"]["content"]     # ← нативный путь
             else:
                 llm_text = response_data["choices"][0]["message"]["content"]
-            
-            
-            
-            print("=" * 60)
-            print("RAW LLM TEXT:")
-            print(repr(llm_text))
-            print("=" * 60)
-
-
-
-            print(f">>>> RAW llm_text: {llm_text!r}")
 
             cleaned_json_text = self._extract_json(llm_text)
             print(f"> Ответ LLM для плана (очищенный): {cleaned_json_text!r}")

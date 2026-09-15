@@ -17,7 +17,4 @@ def test_passgen_query_live():
     
     response = agent.process_query(query)
 
-    with open('example.txt', 'w', encoding='utf-8') as file:
-        file.write(response)
-
     assert any(symb in response for symb in (string.ascii_letters + string.punctuation))
