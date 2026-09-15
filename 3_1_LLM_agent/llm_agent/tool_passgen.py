@@ -12,9 +12,6 @@ class PassGen:
         if length < 1:
             return "Ошибка: Длина пароля должна быть не менее 1 символа."
 
-        """
-        Создаёт надёжный пароль.
-        """ 
         try:
 
             letters = string.ascii_letters
@@ -39,5 +36,4 @@ class PassGen:
 
         except Exception as e:
             # Это сообщение будет выведено в лог, если ошибка возникнет на самом верхнем уровне
-            print("> Ошибка")
-            return f"Произошла ошибка': {e}"
+            return f"Произошла ошибка: {e}"
