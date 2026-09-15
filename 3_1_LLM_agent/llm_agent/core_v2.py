@@ -8,6 +8,7 @@ from decouple import config
 from .tool_calculator import CalculatorTool
 from .tool_websearch import WebSearchTool
 from .tool_pdfinfo import PDFInfoTool
+from .tool_passgen import PassGen
 
 class LLMAgent:
     """
@@ -44,6 +45,7 @@ class LLMAgent:
             "calculator": CalculatorTool(),
             "web_search": WebSearchTool(),
             "pdf_info": PDFInfoTool(),
+            "pass_gen": PassGen(),
         }
         self.conversation_history = []
     
@@ -83,23 +85,21 @@ class LLMAgent:
         Работает как с OpenRouter, так и с Ollama.
         """
         # Системный промпт, который объясняет агенту его роль и формат ответа
-        system_prompt = f"""
-        You are a helpful AI planning assistant. Analyze the user's request and decide if you need to use any tools.
-        Available tools:
-        - **calculator**: For any math-related questions (numbers, calculations). Use it with the full expression.
-        - **web_search**: For finding any information about the real world (current events, facts, definitions). Use it with the user's question or a clear search query. USE ONLY RUSSIAN LANGUAGE QUERIES in this tool.
-        - **pdf_info**: For extracting information from PDF files (metadata, page count, text content). Use it with a local file path or a URL to a PDF file.
-        - **pass_gen**: For generating secure passwords with specified parameters (length : int, sp_symb : bool, numbs : bool).
-        Your response MUST be ONLY a JSON object of the following format.
-        If one or more tools are needed to answer, return JSON of this structure:
-        {{
-        "plan": [
-            {{"action": "tool_name", "input": "some text to pass into tool"}},
-            ... //MORE ACTIONS IF NEEDED SEVERAL TOOLS. ONE ACTION FOR ONE TOOL CALL
-        ]
-        }}
-        If no tool is needed, return an empty plan: {{"plan": []}}.
-        """
+        system_prompt = """
+            You are a helpful AI planning assistant. Analyze the user's request and decide if you need to use any tools.
+            Available tools:
+            - calculator: for math expressions. Use "input" with the expression.
+            - web_search: for real-world info (use Russian queries). Use "input" with the query.
+            - pdf_info: for PDF metadata/text. Use "input" with file path or URL.
+            - pass_gen: for generating passwords. Use "params" with length (int), sp_symb (bool), numbs (bool).
+
+            Your response MUST be ONLY a JSON object with key "plan".
+            If one or more tools are needed, return:
+            "plan": [{"action": "tool_name", "input": "..."}]  # for calculator, web_search, pdf_info
+            OR
+            "plan": [{"action": "pass_gen", "params": {"length": 13, "sp_symb": true, "numbs": false}}]
+            If no tool is needed: {"plan": []}
+            """
 
         # Формируем запрос к API
         payload = {
@@ -181,9 +181,6 @@ class LLMAgent:
             return f"Ошибка при генерации финального ответа. Детали: {e}"
 
     def process_query(self, query: str) -> str:
-        """
-        Основной метод для обработки запроса пользователя.
-        """
         print(f"Агент анализирует ваш запрос... (Режим: {'локальный Ollama' if self.local else 'OpenRouter'})")
         
         # --- Шаг 1: Планирование ---
@@ -191,12 +188,8 @@ class LLMAgent:
 
         if not plan:
             print("Инструменты не требуются. Генерирую ответ напрямую.")
-            # Генерируем прямой ответ через LLM
             direct_prompt = f"Ответьте на следующий вопрос кратко и информативно: {query}"
-            payload = {
-                "model": self.model,
-                "messages": [{"role": "user", "content": direct_prompt}]
-            }
+            payload = {"model": self.model, "messages": [{"role": "user", "content": direct_prompt}]}
             if self.local:
                 payload["stream"] = False
             try:
@@ -207,26 +200,40 @@ class LLMAgent:
 
         # --- Шаг 2: Исполнение плана ---
         print(f"План действий: {plan}")
+        last_result = None  # для сохранения результата последнего инструмента
+
         for step in plan:
             tool_name = step.get('action')
             tool_input = step.get('input')
+            tool_params = step.get('params')
 
             if tool_name in self.tools:
                 print(f"Выполняется инструмент: '{tool_name}'")
-                result = self.tools[tool_name].use(tool_input)
+                try:
+                    if tool_params is not None:
+                        result = self.tools[tool_name].use(**tool_params)
+                    elif tool_input is not None:
+                        result = self.tools[tool_name].use(tool_input)
+                    else:
+                        result = "Ошибка: не указаны параметры"
+                except Exception as e:
+                    result = f"Ошибка при выполнении: {e}"
                 print(f"Результат: {result}...")
-                
-                # Добавляем результат в историю
+                last_result = result  # сохраняем
                 self.conversation_history.append({
                     'role': 'system',
                     'content': f"Tool {tool_name} result: {result}"
                 })
             else:
-                error_msg = f"Ошибка: инструмент с именем '{tool_name}' не найден."
+                error_msg = f"Ошибка: инструмент '{tool_name}' не найден."
                 print(error_msg)
                 self.conversation_history.append({'role': 'system', 'content': error_msg})
-        
-        # --- Шаг 3: Генерация финального ответа ---
+
+        # --- Шаг 3: Если был вызван только pass_gen, сразу возвращаем его результат ---
+        if len(plan) == 1 and plan[0].get('action') == 'pass_gen':
+            return last_result
+
+        # --- Шаг 4: Генерация финального ответа для остальных случаев ---
         print("Составляю финальный ответ...")
         final_response = self._generate_final_response(query)
         return final_response

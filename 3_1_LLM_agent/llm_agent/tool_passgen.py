@@ -8,24 +8,36 @@ class PassGen:
     description = "Создаёт по запросу надёжный пароль с настройками."
 
     def use(self, length : int = 16, sp_symb : bool = True, numbs : bool = True):
+
+        if length < 1:
+            return "Ошибка: Длина пароля должна быть не менее 1 символа."
+
         """
         Создаёт надёжный пароль.
         """ 
         try:
 
-            symb_bank = string.ascii_letters
+            letters = string.ascii_letters
+            digits = string.digits if numbs else ""
+            punctuation = string.punctuation if sp_symb else ""
 
-            if numbs:
-                symb_bank += string.digits
+            symb_bank = letters + digits + punctuation
             
-            if sp_symb:
-                symb_bank += string.punctuation
+            while True:
+
+                psswrd = ''.join(scrts.choice(symb_bank) for i in range(length))
+
+                has_digits = not numbs or any(c in digits for c in psswrd)
+                has_punctuation = not sp_symb or any(c in punctuation for c in psswrd)
+                has_letters = any(c in letters for c in psswrd)
+
+                # Если все условия выполнены, возвращаем пароль
+                if has_digits and has_punctuation and has_letters:
+                    return psswrd
             
-            psswrd = ''.join(scrts.choice(symb_bank) for i in range(length))
-            
-            return psswrd
+                
 
         except Exception as e:
             # Это сообщение будет выведено в лог, если ошибка возникнет на самом верхнем уровне
-            print(f"> Ошибка")
+            print("> Ошибка")
             return f"Произошла ошибка': {e}"
