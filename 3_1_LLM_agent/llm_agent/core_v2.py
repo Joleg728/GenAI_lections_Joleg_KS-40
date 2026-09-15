@@ -84,7 +84,6 @@ class LLMAgent:
         Создает план действий, используя LLM.
         Работает как с OpenRouter, так и с Ollama.
         """
-        # Системный промпт, который объясняет агенту его роль и формат ответа
         system_prompt = """
             You are a helpful AI planning assistant. Analyze the user's request and decide if you need to use any tools.
             Available tools:
@@ -94,12 +93,15 @@ class LLMAgent:
             - pass_gen: for generating passwords. Use "params" with length (int), sp_symb (bool), numbs (bool).
 
             Your response MUST be ONLY a JSON object with key "plan".
-            If one or more tools are needed, return:
-            {"plan": [{"action": "tool_name", "input": "..."}]  # for calculator, web_search, pdf_info}
-            OR
+            Examples:
+            {"plan": [{"action": "calculator", "input": "2+2"}]}
             {"plan": [{"action": "pass_gen", "params": {"length": 13, "sp_symb": true, "numbs": false}}]}
-            If no tool is needed: {"plan": []}
-            DO NOT mess up with brackets number and DO NOT make your response empty
+            {"plan": []}
+
+            Rules:
+            - Use ONLY ASCII characters: braces {}, brackets [], quotes ", colons :, commas ,.
+            - Do NOT add comments, explanations, or markdown fences.
+            - Do NOT change the number of opening and closing brackets.
             """
 
         # Формируем запрос к API
@@ -122,18 +124,9 @@ class LLMAgent:
             # Извлекаем текстовый ответ от модели
             llm_text = response_data["choices"][0]["message"]["content"]
 
-            # Очищаем ответ от блоков кода Markdown
-            import re
-            json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', llm_text, re.DOTALL)
-            
-            if json_match:
-                cleaned_json_text = json_match.group(1)
-            else:
-                cleaned_json_text = llm_text
+            cleaned_json_text = self._extract_json(llm_text)
+            print(f"> Ответ LLM для плана (очищенный): {cleaned_json_text!r}")
 
-            print(f"> Ответ LLM для плана (очищенный): {cleaned_json_text}")
-            
-            # Пытаемся преобразовать ответ в JSON
             action_plan = json.loads(cleaned_json_text)
             plan = action_plan.get("plan", [])
             return plan
@@ -151,6 +144,45 @@ class LLMAgent:
             except:
                 pass
             return []
+            
+    
+    
+    @staticmethod
+    def _extract_json(text: str) -> str:
+        """Достаёт JSON-объект из ответа LLM, чиня типичные артефакты."""
+        import re
+
+        text = text.strip()
+
+        # 1. убрать markdown-обёртку, если есть
+        fence = re.search(r'```(?:json)?\s*(.*?)\s*```', text, re.DOTALL)
+        if fence:
+            text = fence.group(1).strip()
+
+        # 2. нормализовать похожие и невидимые юникод-символы
+        text = (text
+            .replace('\u00a0', ' ')   # NBSP
+            .replace('\u200b', '')    # zero-width space
+            .replace('\u200c', '')    # zero-width non-joiner
+            .replace('\u200d', '')    # zero-width joiner
+            .replace('\ufeff', '')    # BOM
+            .replace('\u201c', '"').replace('\u201d', '"')  # “ ”
+            .replace('\u2018', "'").replace('\u2019', "'")  # ‘ ’
+            .replace('｛', '{').replace('｝', '}')
+            .replace('［', '[').replace('］', ']')
+            .replace('：', ':').replace('，', ',')
+            .replace('＂', '"')
+        )
+
+        # 3. вырезать от первого '{' до последнего '}'
+        start = text.find('{')
+        end = text.rfind('}')
+        if start == -1 or end == -1 or end < start:
+            raise ValueError(f"JSON-объект не найден в ответе LLM: {text!r}")
+
+        return text[start:end + 1]
+    
+    
 
     def _generate_final_response(self, user_query: str) -> str:
         """
