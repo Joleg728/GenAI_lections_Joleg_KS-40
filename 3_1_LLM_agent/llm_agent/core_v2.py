@@ -95,10 +95,11 @@ class LLMAgent:
 
             Your response MUST be ONLY a JSON object with key "plan".
             If one or more tools are needed, return:
-            "plan": [{"action": "tool_name", "input": "..."}]  # for calculator, web_search, pdf_info
+            {"plan": [{"action": "tool_name", "input": "..."}]  # for calculator, web_search, pdf_info}
             OR
-            "plan": [{"action": "pass_gen", "params": {"length": 13, "sp_symb": true, "numbs": false}}]
+            {"plan": [{"action": "pass_gen", "params": {"length": 13, "sp_symb": true, "numbs": false}}]}
             If no tool is needed: {"plan": []}
+            DO NOT mess up with brackets number and DO NOT make your response empty
             """
 
         # Формируем запрос к API
