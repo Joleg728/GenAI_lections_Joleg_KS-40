@@ -122,26 +122,10 @@ User: "Сколько будет 2+2?"
 
         if self.local:
             payload["stream"] = False
-            payload["format"] = {
-                "type": "object",
-                "properties": {
-                    "plan": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "action": {"type": "string"},
-                                "input":  {"type": "string"},
-                                "params": {"type": "object"}
-                            },
-                            "required": ["action"]
-                        }
-                    }
-                },
-                "required": ["plan"]
-            }
+            payload["think"] = False
             payload["options"] = {"temperature": 0, "top_p": 0.1}
-        
+            payload["format"] = "json"
+            
         try:
             # Для Ollama может потребоваться дополнительная настройка
             if self.local:
