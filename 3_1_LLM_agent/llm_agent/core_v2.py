@@ -112,6 +112,27 @@ class LLMAgent:
                 {"role": "user", "content": query}
             ]
         }
+
+        if self.local:
+            payload["stream"] = False
+            payload["format"] = {
+                "type": "object",
+                "properties": {
+                    "plan": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "action": {"type": "string"},
+                                "input":  {"type": "string"},
+                                "params": {"type": "object"}
+                            },
+                            "required": ["action"]
+                        }
+                    }
+                },
+                "required": ["plan"]
+            }
         
         try:
             # Для Ollama может потребоваться дополнительная настройка
