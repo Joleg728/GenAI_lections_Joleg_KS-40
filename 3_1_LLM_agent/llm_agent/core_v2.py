@@ -90,6 +90,16 @@ class LLMAgent:
 - calculator: for math.
 - pdf_info: for PDF files.
 
+YOUR ONLY JOB is to output a JSON plan. You are NOT the assistant that answers the user.
+You MUST NOT generate passwords, compute math, or answer the question yourself.
+You only decide WHICH TOOLS to call.
+
+Output format (strict):
+{"plan": [ ... ]}
+
+If the user asks to create a password, respond with:
+{"plan": [{"action": "pass_gen", "params": {"length": <N>, "sp_symb": <bool>, "numbs": <bool>}}]}
+
 CRITICAL RULES:
 1. If the user asks to CREATE / GENERATE / MAKE a password
    (words: create, generate, make, password, пароль, сгенерируй, создай) — ALWAYS use pass_gen.
@@ -97,19 +107,7 @@ CRITICAL RULES:
    mentions length, character types, or security requirements.
 2. Use web_search ONLY when the user asks a QUESTION about the world.
 3. If unsure between pass_gen and web_search for the word "password" — choose pass_gen.
-
-Examples:
-User: "Create a password with 20 characters, no special chars"
-{"plan": [{"action": "pass_gen", "params": {"length": 20, "sp_symb": false, "numbs": true}}]}
-
-User: "Generate a 13-char password with symbols"
-{"plan": [{"action": "pass_gen", "params": {"length": 13, "sp_symb": true, "numbs": true}}]}
-
-User: "How long should passwords be?"
-{"plan": [{"action": "web_search", "input": "password length recommendations NIST"}]}
-
-User: "Сколько будет 2+2?"
-{"plan": [{"action": "calculator", "input": "2+2"}]}"""
+"""
 
         # Формируем запрос к API
         payload = {
@@ -124,7 +122,7 @@ User: "Сколько будет 2+2?"
             payload["stream"] = False
             payload["think"] = False
             payload["options"] = {"temperature": 0, "top_p": 0.1}
-            payload["format"] = "json"
+            payload["response_format"] = {"type": "json_object"}
             
         try:
             # Для Ollama может потребоваться дополнительная настройка
