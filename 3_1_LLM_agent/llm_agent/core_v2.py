@@ -131,6 +131,15 @@ CRITICAL RULES:
                 llm_text = response_data["message"]["content"]     # ← нативный путь
             else:
                 llm_text = response_data["choices"][0]["message"]["content"]
+            
+            
+            
+            print("=" * 60)
+            print("RAW LLM TEXT:")
+            print(repr(llm_text))
+            print("=" * 60)
+
+
 
             print(f">>>> RAW llm_text: {llm_text!r}")
 
