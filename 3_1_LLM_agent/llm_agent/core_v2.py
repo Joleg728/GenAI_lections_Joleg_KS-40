@@ -37,7 +37,7 @@ class LLMAgent:
             self.model = model
         else:
             self.api_key = None
-            self.url = f"{self.ollama_base_url}/v1/chat/completions"
+            self.url = f"{self.ollama_base_url}/api/chat"
             self.model = ollama_model
         
         # Создаем экземпляры инструментов
@@ -73,7 +73,7 @@ class LLMAgent:
             headers["Content-Type"] = "application/json"
         
         try:
-            response = requests.post(self.url, json=payload, headers=headers)
+            response = requests.post(self.url, json=payload, headers=headers, timeout=120)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
@@ -115,25 +115,24 @@ CRITICAL RULES:
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": query}
-            ]
+            ],
+            "stream": False,
         }
 
         if self.local:
-            payload["stream"] = False
             payload["think"] = False
-            payload["options"] = {"temperature": 0, "top_p": 0.1}
-            payload["response_format"] = {"type": "json_object"}
-            
+            payload["format"] = "json"          # нативный Ollama: строка "json"
+            payload["options"] = {"temperature": 0, "top_p": 0.1, "num_predict": 256}
+
         try:
-            # Для Ollama может потребоваться дополнительная настройка
-            if self.local:
-                # Некоторые модели Ollama могут требовать параметр stream=False
-                payload["stream"] = False
-            
             response_data = self._make_api_request(payload)
-            
-            # Извлекаем текстовый ответ от модели
-            llm_text = response_data["choices"][0]["message"]["content"]
+
+            if self.local:
+                llm_text = response_data["message"]["content"]     # ← нативный путь
+            else:
+                llm_text = response_data["choices"][0]["message"]["content"]
+
+            print(f">>>> RAW llm_text: {llm_text!r}")
 
             cleaned_json_text = self._extract_json(llm_text)
             print(f"> Ответ LLM для плана (очищенный): {cleaned_json_text!r}")
@@ -216,10 +215,12 @@ CRITICAL RULES:
         
         if self.local:
             payload["stream"] = False
-        
         try:
             response_data = self._make_api_request(payload)
-            final_text = response_data["choices"][0]["message"]["content"]
+            if self.local:
+                final_text = response_data["message"]["content"]
+            else:
+                final_text = response_data["choices"][0]["message"]["content"]
             return final_text
         except Exception as e:
             return f"Ошибка при генерации финального ответа. Детали: {e}"
@@ -238,6 +239,8 @@ CRITICAL RULES:
                 payload["stream"] = False
             try:
                 response_data = self._make_api_request(payload)
+                if self.local:
+                    return response_data["message"]["content"]
                 return response_data["choices"][0]["message"]["content"]
             except:
                 return "Извините, не удалось сгенерировать ответ."
