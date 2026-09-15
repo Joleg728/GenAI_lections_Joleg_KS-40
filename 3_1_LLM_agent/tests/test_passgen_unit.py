@@ -1,5 +1,6 @@
 # tests/test_passgen_unit.py
 from llm_agent.tool_passgen import PassGen
+import string
 
 def test_passgen_length_and_charset():
     """Проверяет, что пароль имеет нужную длину и содержит только разрешённые символы."""
